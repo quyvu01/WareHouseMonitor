@@ -21,7 +21,7 @@ from utils import export_to_csv
 
 # App configuration
 st.set_page_config(
-    page_title="Warehouse Temperature Monitoring",
+    page_title="Hệ Thống Giám Sát Nhiệt Độ Kho Hàng",
     page_icon="🌡️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -53,22 +53,22 @@ if 'alert_threshold_humid_max' not in st.session_state:
     st.session_state.alert_threshold_humid_max = 70.0  # Default maximum humidity
 
 # Sidebar
-st.sidebar.title("Settings")
+st.sidebar.title("Cài Đặt")
 
 # Data source selection
 data_source = st.sidebar.radio(
-    "Data Source",
-    ["Mock Data", "Serial Port"],
+    "Nguồn Dữ Liệu",
+    ["Dữ Liệu Mẫu", "Cổng Serial"],
     index=0 if not st.session_state.use_real_sensors else 1
 )
-st.session_state.use_real_sensors = (data_source == "Serial Port")
+st.session_state.use_real_sensors = (data_source == "Cổng Serial")
 
 # Serial port configuration (if real sensors selected)
 if st.session_state.use_real_sensors:
-    serial_port = st.sidebar.text_input("Serial Port", "/dev/ttyUSB0")
-    baud_rate = st.sidebar.selectbox("Baud Rate", [9600, 19200, 38400, 57600, 115200], index=0)
+    serial_port = st.sidebar.text_input("Cổng Serial", "/dev/ttyUSB0")
+    baud_rate = st.sidebar.selectbox("Tốc Độ Baud", [9600, 19200, 38400, 57600, 115200], index=0)
 else:
-    st.sidebar.info("Using mock data for demonstration")
+    st.sidebar.info("Đang sử dụng dữ liệu mẫu để demo")
 
 # Alert thresholds
 st.sidebar.subheader("Alert Thresholds")

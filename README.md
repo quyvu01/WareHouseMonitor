@@ -18,7 +18,7 @@
 3. Cài đặt các thư viện cần thiết:
 
 ```bash
-pip install -r requirements.txt
+pip install -r dependencies.txt
 ```
 
 ## Chạy ứng dụng
@@ -30,6 +30,12 @@ streamlit run app.py
 ```
 
 Ứng dụng sẽ tự động mở trong trình duyệt web mặc định của bạn. Nếu không, bạn có thể truy cập tại địa chỉ http://localhost:8501
+
+## Sử dụng phiên bản độc lập (không cần cài đặt Python)
+
+1. Tải về phiên bản đóng gói tại [liên kết tải xuống]
+2. Giải nén và chạy file WarehouseTemperatureMonitor.exe
+3. Ứng dụng sẽ tự động khởi động và mở trong trình duyệt
 
 ## Kết nối với cảm biến
 
@@ -52,7 +58,11 @@ Các thông số cấu hình có thể được điều chỉnh trong giao diệ
 
 ## Yêu cầu hệ thống
 
-- Python 3.8 hoặc cao hơn
+- Khi chạy từ mã nguồn: Python 3.8 hoặc cao hơn
 - Các thư viện Python: streamlit, pandas, numpy, matplotlib, plotly, scikit-learn, pyserial
 - Tối thiểu 2GB RAM
 - Khoảng 100MB dung lượng ổ đĩa
+
+## Hướng dẫn đầy đủ
+
+Xem file INSTALLATION_GUIDE.md để biết thêm chi tiết về cách cài đặt trên các hệ điều hành khác nhau.
