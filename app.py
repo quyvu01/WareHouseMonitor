@@ -249,13 +249,13 @@ while st.session_state.monitoring_active:
                 
                 # Anomaly status
                 with status_cols[2]:
-                    if temp_anomalies:
+                    if not temp_anomalies.empty:
                         st.error("⚠️ Temperature anomaly detected!")
                     else:
                         st.success("✅ Temperature normal")
                 
                 with status_cols[3]:
-                    if humid_anomalies:
+                    if not humid_anomalies.empty:
                         st.error("⚠️ Humidity anomaly detected!")
                     else:
                         st.success("✅ Humidity normal")
