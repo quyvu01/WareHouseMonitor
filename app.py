@@ -222,7 +222,7 @@ def update_monitoring_data():
         # Read data from source
         if st.session_state.use_real_sensors:
             try:
-                temperature, humidity = read_serial_data(serial_port, baud_rate)
+                temperature, humidity = read_serial_data(st.session_state.serial_port, st.session_state.baud_rate)
             except Exception as e:
                 st.session_state.error_message = f"Lỗi đọc từ cổng serial: {e}"
                 return
