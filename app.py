@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import time
+import threading
 from datetime import datetime, timedelta
 import sqlite3
 import os
@@ -30,12 +31,22 @@ st.set_page_config(
 # Initialize database
 init_db()
 
+# Define global variables for serial connection
+serial_port = "/dev/ttyUSB0"
+baud_rate = 9600
+
 # Session state initialization
 if 'use_real_sensors' not in st.session_state:
     st.session_state.use_real_sensors = False
 
 if 'monitoring_active' not in st.session_state:
     st.session_state.monitoring_active = False
+
+# Store the serial configuration in session state
+if 'serial_port' not in st.session_state:
+    st.session_state.serial_port = serial_port
+if 'baud_rate' not in st.session_state:
+    st.session_state.baud_rate = baud_rate
 
 if 'anomaly_threshold' not in st.session_state:
     st.session_state.anomaly_threshold = 3.0  # Default value
@@ -65,8 +76,8 @@ st.session_state.use_real_sensors = (data_source == "Cổng Serial")
 
 # Serial port configuration (if real sensors selected)
 if st.session_state.use_real_sensors:
-    serial_port = st.sidebar.text_input("Cổng Serial", "/dev/ttyUSB0")
-    baud_rate = st.sidebar.selectbox("Tốc Độ Baud", [9600, 19200, 38400, 57600, 115200], index=0)
+    st.session_state.serial_port = st.sidebar.text_input("Cổng Serial", st.session_state.serial_port)
+    st.session_state.baud_rate = st.sidebar.selectbox("Tốc Độ Baud", [9600, 19200, 38400, 57600, 115200], index=0)
 else:
     st.sidebar.info("Đang sử dụng dữ liệu mẫu để demo")
 
@@ -114,6 +125,8 @@ timeframe = st.sidebar.selectbox(
     ["1 Giờ Qua", "6 Giờ Qua", "12 Giờ Qua", "1 Ngày Qua", "1 Tuần Qua", "1 Tháng Qua", "Tất Cả Dữ Liệu"],
     index=3
 )
+
+
 
 # Start/Stop monitoring
 monitoring_button = st.sidebar.button(
@@ -263,13 +276,44 @@ if 'humid_anomalies' not in st.session_state:
 if 'error_message' not in st.session_state:
     st.session_state.error_message = None
 
-# Main app logic for monitoring
+# Create a background updater function for real-time data
+def background_updater():
+    while st.session_state.monitoring_active:
+        try:
+            # Call the update function
+            update_monitoring_data()
+            # Sleep for 3 seconds
+            time.sleep(3)
+        except Exception as e:
+            print(f"Background updater error: {e}")
+            # If an error occurs, we'll try to continue
+
+# Function to start the background thread
+def start_monitoring_thread():
+    if not hasattr(st.session_state, 'monitoring_thread') or not st.session_state.monitoring_thread.is_alive():
+        st.session_state.monitoring_thread = threading.Thread(target=background_updater)
+        st.session_state.monitoring_thread.daemon = True
+        st.session_state.monitoring_thread.start()
+
+# Function to stop the monitoring thread
+def stop_monitoring_thread():
+    if hasattr(st.session_state, 'monitoring_thread') and st.session_state.monitoring_thread.is_alive():
+        st.session_state.monitoring_thread = None
+
+# Handle monitoring activation/deactivation
+if monitoring_button:
+    if st.session_state.monitoring_active:
+        # Starting monitoring
+        start_monitoring_thread()
+    else:
+        # Stopping monitoring
+        stop_monitoring_thread()
+
+# Main display logic - separated from data collection
+# Display placeholders with real-time data
 if st.session_state.monitoring_active:
-    # Update data first
-    update_monitoring_data()
-    
     # Now display the data if we have it
-    if st.session_state.current_temperature is not None and st.session_state.current_humidity is not None:
+    if 'current_temperature' in st.session_state and st.session_state.current_temperature is not None and 'current_humidity' in st.session_state and st.session_state.current_humidity is not None:
         # Update status
         with status_container:
             status_cols = st.columns(4)
@@ -292,13 +336,13 @@ if st.session_state.monitoring_active:
             
             # Anomaly status
             with status_cols[2]:
-                if not st.session_state.temp_anomalies.empty:
+                if 'temp_anomalies' in st.session_state and not st.session_state.temp_anomalies.empty:
                     st.error("⚠️ Phát hiện nhiệt độ bất thường!")
                 else:
                     st.success("✅ Nhiệt độ bình thường")
             
             with status_cols[3]:
-                if not st.session_state.humid_anomalies.empty:
+                if 'humid_anomalies' in st.session_state and not st.session_state.humid_anomalies.empty:
                     st.error("⚠️ Phát hiện độ ẩm bất thường!")
                 else:
                     st.success("✅ Độ ẩm bình thường")
@@ -314,36 +358,51 @@ if st.session_state.monitoring_active:
         
         # Update real-time charts
         with temp_chart_placeholder:
-            plot_real_time_temperature(st.session_state.latest_data, 
-                                     st.session_state.alert_threshold_temp_min,
-                                     st.session_state.alert_threshold_temp_max)
+            if 'latest_data' in st.session_state and not st.session_state.latest_data.empty:
+                plot_real_time_temperature(st.session_state.latest_data, 
+                                         st.session_state.alert_threshold_temp_min,
+                                         st.session_state.alert_threshold_temp_max)
             
         with humidity_chart_placeholder:
-            plot_real_time_humidity(st.session_state.latest_data,
-                                  st.session_state.alert_threshold_humid_min,
-                                  st.session_state.alert_threshold_humid_max)
+            if 'latest_data' in st.session_state and not st.session_state.latest_data.empty:
+                plot_real_time_humidity(st.session_state.latest_data,
+                                      st.session_state.alert_threshold_humid_min,
+                                      st.session_state.alert_threshold_humid_max)
             
         # Update historical charts
         with hist_temp_chart_placeholder:
-            plot_historical_temperature(st.session_state.historical_data)
+            if 'historical_data' in st.session_state and not st.session_state.historical_data.empty:
+                plot_historical_temperature(st.session_state.historical_data)
             
         with hist_humidity_chart_placeholder:
-            plot_historical_humidity(st.session_state.historical_data)
+            if 'historical_data' in st.session_state and not st.session_state.historical_data.empty:
+                plot_historical_humidity(st.session_state.historical_data)
             
         # Update statistics
         with temp_stats_placeholder:
-            plot_temperature_statistics(st.session_state.historical_data, st.session_state.temp_anomalies)
+            if ('historical_data' in st.session_state and 'temp_anomalies' in st.session_state and 
+                not st.session_state.historical_data.empty):
+                plot_temperature_statistics(st.session_state.historical_data, st.session_state.temp_anomalies)
             
         with humidity_stats_placeholder:
-            plot_humidity_statistics(st.session_state.historical_data, st.session_state.humid_anomalies)
+            if ('historical_data' in st.session_state and 'humid_anomalies' in st.session_state and 
+                not st.session_state.historical_data.empty):
+                plot_humidity_statistics(st.session_state.historical_data, st.session_state.humid_anomalies)
     
     # Show any errors
     if 'error_message' in st.session_state and st.session_state.error_message:
         status_container.error(st.session_state.error_message)
-    
-    # Schedule the next update without rerunning the entire app
-    time.sleep(3)
-    st.rerun()
+        
+    # Auto refresh every 5 seconds without page reload
+    st.empty().markdown("""
+    <script>
+    function reloadData() {
+        // This doesn't reload the page, just updates the session state
+        window.streamlitPythonConnection.sendSessionStateUpdate();
+    }
+    setInterval(reloadData, 5000);
+    </script>
+    """, unsafe_allow_html=True)
 
 if not st.session_state.monitoring_active:
     status_container.info("Hệ thống giám sát hiện đang không hoạt động. Nhấn 'Bắt Đầu Giám Sát' để bắt đầu.")
