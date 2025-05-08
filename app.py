@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import time
+import threading
 from datetime import datetime, timedelta
 import sqlite3
 import os
@@ -275,13 +276,34 @@ if 'humid_anomalies' not in st.session_state:
 if 'error_message' not in st.session_state:
     st.session_state.error_message = None
 
+# Handle monitoring activation/deactivation
+if monitoring_button:
+    st.session_state.monitoring_active = not st.session_state.monitoring_active
+    
 # Update data if monitoring is active
 if st.session_state.monitoring_active:
     update_monitoring_data()
     
-    # Rerun the script after 3 seconds - this is the standard Streamlit way to get real-time updates
-    time.sleep(3)  # Wait for 3 seconds to avoid UI flickering
-    st.rerun()
+# Auto refresh every 3 seconds without page reload using Streamlit's built-in auto_refresh functionality
+if st.session_state.monitoring_active:
+    st.empty().markdown("""
+    <script>
+    function reloadData() {
+        // This function triggers a rerun without refreshing the entire page
+        window.streamlitPythonConnection.sendMessageToHost({
+            type: "streamlitRerunScript",
+            immediate: false
+        });
+    }
+    // Call reloadData every 3 seconds
+    const intervalId = setInterval(reloadData, 3000);
+    
+    // Clear interval if page is navigated away from
+    window.addEventListener('beforeunload', function() {
+        clearInterval(intervalId);
+    });
+    </script>
+    """, unsafe_allow_html=True)
 
 # Main display logic - separated from data collection
 # Display placeholders with real-time data
