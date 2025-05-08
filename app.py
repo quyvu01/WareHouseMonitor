@@ -212,6 +212,10 @@ def update_monitoring_data():
                 temperature, humidity = read_serial_data(serial_port, baud_rate)
             except Exception as e:
                 st.session_state.error_message = f"Lỗi đọc từ cổng serial: {e}"
+                # Force stop monitoring when error occurs
+                st.session_state.monitoring_active = False
+                # Force a rerun to update the button text
+                st.rerun()
                 return
         else:
             temperature, humidity = generate_mock_data()
@@ -242,10 +246,16 @@ def update_monitoring_data():
                 del st.session_state.error_message
         else:
             st.session_state.error_message = "Không nhận được dữ liệu hợp lệ"
+            # Force stop monitoring when no valid data
+            st.session_state.monitoring_active = False
+            # Force a rerun to update the button text
+            st.rerun()
             
     except Exception as e:
         st.session_state.error_message = f"Đã xảy ra lỗi: {e}"
         st.session_state.monitoring_active = False
+        # Force a rerun to update the button text
+        st.rerun()
 
 # Initialize session state variables for monitoring
 if 'current_temperature' not in st.session_state:
@@ -262,6 +272,34 @@ if 'humid_anomalies' not in st.session_state:
     st.session_state.humid_anomalies = pd.DataFrame()
 if 'error_message' not in st.session_state:
     st.session_state.error_message = None
+
+# Define a function to handle stop button behavior
+def handle_stop_button():
+    if st.session_state.monitoring_active:
+        # Update message when stopping monitoring
+        status_container.info("Đang dừng giám sát...")
+        # Clear any visualization to prevent flickering
+        with temp_chart_placeholder:
+            st.empty()
+        with humidity_chart_placeholder:
+            st.empty()
+        with hist_temp_chart_placeholder:
+            st.empty()
+        with hist_humidity_chart_placeholder:
+            st.empty()
+        with temp_stats_placeholder:
+            st.empty()
+        with humidity_stats_placeholder:
+            st.empty()
+        # Stop monitoring
+        st.session_state.monitoring_active = False
+        # Force refresh to update UI
+        st.rerun()
+
+# Create a stop button that's only shown when monitoring is active
+if st.session_state.monitoring_active:
+    if st.sidebar.button("Dừng Giám Sát Ngay", key="stop_now_button"):
+        handle_stop_button()
 
 # Main app logic for monitoring
 if st.session_state.monitoring_active:
