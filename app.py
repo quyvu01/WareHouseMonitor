@@ -30,6 +30,23 @@ st.set_page_config(
 # Initialize database
 init_db()
 
+# Create placeholders at the global scope for toggle_monitoring_state to use
+status_container = None 
+temp_chart_placeholder = None
+humidity_chart_placeholder = None
+hist_temp_chart_placeholder = None
+hist_humidity_chart_placeholder = None
+temp_stats_placeholder = None
+humidity_stats_placeholder = None
+
+# Define function to toggle monitoring state (defined before session state initialization)
+def toggle_monitoring_state():
+    # Toggle state
+    st.session_state.monitoring_active = not st.session_state.monitoring_active
+    
+    # Force refresh to update UI
+    st.rerun()
+
 # Session state initialization
 if 'use_real_sensors' not in st.session_state:
     st.session_state.use_real_sensors = False
@@ -52,6 +69,13 @@ if 'alert_threshold_humid_min' not in st.session_state:
 if 'alert_threshold_humid_max' not in st.session_state:
     st.session_state.alert_threshold_humid_max = 70.0  # Default maximum humidity
 
+# Initialize serial port settings in session state
+if 'serial_port' not in st.session_state:
+    st.session_state.serial_port = '/dev/ttyUSB0'
+    
+if 'baud_rate' not in st.session_state:
+    st.session_state.baud_rate = 9600
+
 # Sidebar
 st.sidebar.title("Cài Đặt")
 
@@ -65,8 +89,8 @@ st.session_state.use_real_sensors = (data_source == "Cổng Serial")
 
 # Serial port configuration (if real sensors selected)
 if st.session_state.use_real_sensors:
-    serial_port = st.sidebar.text_input("Cổng Serial", "/dev/ttyUSB0")
-    baud_rate = st.sidebar.selectbox("Tốc Độ Baud", [9600, 19200, 38400, 57600, 115200], index=0)
+    st.session_state.serial_port = st.sidebar.text_input("Cổng Serial", "/dev/ttyUSB0")
+    st.session_state.baud_rate = st.sidebar.selectbox("Tốc Độ Baud", [9600, 19200, 38400, 57600, 115200], index=0)
 else:
     st.sidebar.info("Đang sử dụng dữ liệu mẫu để demo")
 
@@ -117,10 +141,9 @@ timeframe = st.sidebar.selectbox(
 
 # Start/Stop monitoring
 monitoring_button = st.sidebar.button(
-    "Dừng Giám Sát" if st.session_state.monitoring_active else "Bắt Đầu Giám Sát"
+    "Dừng Giám Sát" if st.session_state.monitoring_active else "Bắt Đầu Giám Sát", 
+    on_click=toggle_monitoring_state
 )
-if monitoring_button:
-    st.session_state.monitoring_active = not st.session_state.monitoring_active
 
 # Export data
 if st.sidebar.button("Xuất Dữ Liệu"):
@@ -209,6 +232,9 @@ def update_monitoring_data():
         # Read data from source
         if st.session_state.use_real_sensors:
             try:
+                # Get the port and baud rate from session state
+                serial_port = st.session_state.get('serial_port', '/dev/ttyUSB0')
+                baud_rate = st.session_state.get('baud_rate', 9600)
                 temperature, humidity = read_serial_data(serial_port, baud_rate)
             except Exception as e:
                 st.session_state.error_message = f"Lỗi đọc từ cổng serial: {e}"
@@ -273,33 +299,7 @@ if 'humid_anomalies' not in st.session_state:
 if 'error_message' not in st.session_state:
     st.session_state.error_message = None
 
-# Define a function to handle stop button behavior
-def handle_stop_button():
-    if st.session_state.monitoring_active:
-        # Update message when stopping monitoring
-        status_container.info("Đang dừng giám sát...")
-        # Clear any visualization to prevent flickering
-        with temp_chart_placeholder:
-            st.empty()
-        with humidity_chart_placeholder:
-            st.empty()
-        with hist_temp_chart_placeholder:
-            st.empty()
-        with hist_humidity_chart_placeholder:
-            st.empty()
-        with temp_stats_placeholder:
-            st.empty()
-        with humidity_stats_placeholder:
-            st.empty()
-        # Stop monitoring
-        st.session_state.monitoring_active = False
-        # Force refresh to update UI
-        st.rerun()
-
-# Create a stop button that's only shown when monitoring is active
-if st.session_state.monitoring_active:
-    if st.sidebar.button("Dừng Giám Sát Ngay", key="stop_now_button"):
-        handle_stop_button()
+# Remove this duplicate function since it's already defined at the top
 
 # Main app logic for monitoring
 if st.session_state.monitoring_active:
