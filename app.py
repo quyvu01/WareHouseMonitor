@@ -276,38 +276,34 @@ if 'humid_anomalies' not in st.session_state:
 if 'error_message' not in st.session_state:
     st.session_state.error_message = None
 
-# Create a background updater function for real-time data
-def background_updater():
-    while st.session_state.monitoring_active:
-        try:
-            # Call the update function
-            update_monitoring_data()
-            # Sleep for 3 seconds
-            time.sleep(3)
-        except Exception as e:
-            print(f"Background updater error: {e}")
-            # If an error occurs, we'll try to continue
-
-# Function to start the background thread
-def start_monitoring_thread():
-    if not hasattr(st.session_state, 'monitoring_thread') or not st.session_state.monitoring_thread.is_alive():
-        st.session_state.monitoring_thread = threading.Thread(target=background_updater)
-        st.session_state.monitoring_thread.daemon = True
-        st.session_state.monitoring_thread.start()
-
-# Function to stop the monitoring thread
-def stop_monitoring_thread():
-    if hasattr(st.session_state, 'monitoring_thread') and st.session_state.monitoring_thread.is_alive():
-        st.session_state.monitoring_thread = None
-
 # Handle monitoring activation/deactivation
 if monitoring_button:
-    if st.session_state.monitoring_active:
-        # Starting monitoring
-        start_monitoring_thread()
-    else:
-        # Stopping monitoring
-        stop_monitoring_thread()
+    st.session_state.monitoring_active = not st.session_state.monitoring_active
+    
+# Update data if monitoring is active
+if st.session_state.monitoring_active:
+    update_monitoring_data()
+    
+# Auto refresh every 3 seconds without page reload using Streamlit's built-in auto_refresh functionality
+if st.session_state.monitoring_active:
+    st.empty().markdown("""
+    <script>
+    function reloadData() {
+        // This function triggers a rerun without refreshing the entire page
+        window.streamlitPythonConnection.sendMessageToHost({
+            type: "streamlitRerunScript",
+            immediate: false
+        });
+    }
+    // Call reloadData every 3 seconds
+    const intervalId = setInterval(reloadData, 3000);
+    
+    // Clear interval if page is navigated away from
+    window.addEventListener('beforeunload', function() {
+        clearInterval(intervalId);
+    });
+    </script>
+    """, unsafe_allow_html=True)
 
 # Main display logic - separated from data collection
 # Display placeholders with real-time data
@@ -393,16 +389,7 @@ if st.session_state.monitoring_active:
     if 'error_message' in st.session_state and st.session_state.error_message:
         status_container.error(st.session_state.error_message)
         
-    # Auto refresh every 5 seconds without page reload
-    st.empty().markdown("""
-    <script>
-    function reloadData() {
-        // This doesn't reload the page, just updates the session state
-        window.streamlitPythonConnection.sendSessionStateUpdate();
-    }
-    setInterval(reloadData, 5000);
-    </script>
-    """, unsafe_allow_html=True)
+    # We already have auto-refresh at the top level, so no need for another one here
 
 if not st.session_state.monitoring_active:
     status_container.info("Hệ thống giám sát hiện đang không hoạt động. Nhấn 'Bắt Đầu Giám Sát' để bắt đầu.")
